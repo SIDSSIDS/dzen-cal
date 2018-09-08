@@ -1,0 +1,354 @@
+#!/bin/bash
+
+highlighted_days=(
+  # salary days
+  "2018-09-14"
+  "2018-09-28"
+  "2018-10-12"
+  "2018-10-29"
+  "2018-11-14"
+  "2018-11-29"
+  "2018-12-14"
+  "2018-12-28"
+)
+
+holidays=(
+  # 2018 holidays
+  "2018-01-01"
+  "2018-01-02"
+  "2018-01-03"
+  "2018-01-04"
+  "2018-01-05"
+  "2018-01-06"
+  "2018-01-07"
+  "2018-01-08"
+  "2018-02-23"
+  "2018-03-08"
+  "2018-03-09"
+  "2018-04-30"
+  "2018-05-01"
+  "2018-05-02"
+  "2018-06-11"
+  "2018-06-12"
+  "2018-11-05"
+  "2018-12-31"
+  # 2019 holidays
+  "2019-01-01"
+  "2019-01-02"
+  "2019-01-03"
+  "2019-01-04"
+  "2019-01-05"
+  "2019-01-06"
+  "2019-01-07"
+  "2019-01-08"
+  "2019-02-23"
+  "2019-03-08"
+  "2019-05-01"
+  "2019-05-02"
+  "2019-05-03"
+  "2019-05-09"
+  "2019-05-10"
+  "2019-06-12"
+  "2019-11-04"
+)
+
+workdays=(
+  # 2018 workdays
+  "2018-04-28"
+  "2018-06-09"
+  "2018-12-29"
+)
+
+declare -a aligns=( "tl" "tm" "tr"
+                    "ml" "mm" "mr"
+                    "bl" "bm" "br" )
+
+declare -A aligns_map
+
+for key in "${!aligns[@]}"; do
+    aligns_map[${aligns[$key]}]=1;
+done
+
+function test_args() {
+    if [[ -z "${aligns_map[$align]}" ]]; then
+        echo "ERROR: unknown align: $align"
+        exit 1
+    fi
+    if [[ "$view_type" != "month" ]] && [[ "$view_type" != "year" ]]; then
+        echo "ERROR: unknown view type: $view_type"
+        exit 1
+    fi
+}
+
+function read_args() {
+    OPTS=`getopt -o a:,m:,y:,v: -l x-indent:,y-indent: -- "$@"`
+    eval set -- "$OPTS"
+
+    while true; do
+        case "$1" in
+            -v ) view_type="$2"; shift 2 ;;
+            -m ) month="$2"; shift 2 ;;
+            -y ) year="$2"; shift 2 ;;
+            -a ) align="$2"; shift 2 ;;
+            --x-indent) x_indent="$2"; shift 2;;
+            --y-indent) y_indent="$2"; shift 2;;
+            -- ) shift; break ;;
+            * ) break ;;
+        esac
+    done
+
+    x_indent="${x_indent:-0}"
+    y_indent="${y_indent:-0}"
+    day=$(date +%d)
+    month=${month:-$current_month}
+    year=${year:-$current_year}
+
+    if (( month > 12 )); then
+        month=1
+        ((year++))
+    fi
+    if (( month < 1 )); then
+        month=12
+        ((year--))
+    fi
+}
+
+defaultBg="#222222"
+defaultFg="#bbbbbb"
+curDayBg="#ffeb3b"
+curDayFg="#222222"
+holidayFg="#f44336"
+holidayBg=""
+highlightedFg="#00bcd4"
+highlightedBg=""
+titleName="dzen-calendar"
+font="Liberation Mono:pixelsize=16:antialias=true:autohint=true"
+font_height=21
+width_month="220"
+width_year="680"
+
+screenW=$(xdpyinfo | grep dimensions | egrep -o "[0-9]+x[0-9]+ pixels" | egrep -o "[0-9]+x[0-9]+" | sed "s/x.*//")
+screenH=$(xdpyinfo | grep dimensions | egrep -o "[0-9]+x[0-9]+ pixels" | egrep -o "[0-9]+x[0-9]+" | sed "s/.*x//")
+
+script_path="$(cd "$(dirname "$0")"; pwd -P)/$(basename "$0")"
+
+current_month=$(date +%-m)
+current_year=$(date +%-Y)
+view_type="month"
+align="mm"
+
+read_args "$@"
+test_args
+
+next_cmd="$script_path -a $align --x-indent $x_indent --y-indent $y_indent -m $((month + 1)) -y $year"
+prev_cmd="$script_path -a $align --x-indent $x_indent --y-indent $y_indent -m $((month - 1)) -y $year"
+next="^bg($defaultFg)^fg($defaultBg)^ca(1,$next_cmd)>>^ca()^fg()^bg()"
+prev="^bg($defaultFg)^fg($defaultBg)^ca(1,$prev_cmd)<<^ca()^fg()^bg()"
+
+year_cmd="$script_path -a $align --x-indent $x_indent --y-indent $y_indent -y $year -v year"
+year_btn="^bg($defaultFg)^fg($defaultBg)^ca(1,$year_cmd)$year^ca()^fg()^bg()"
+
+next_year_cmd="$script_path -a $align --x-indent $x_indent --y-indent $y_indent -y $((year + 1)) -v year"
+prev_year_cmd="$script_path -a $align --x-indent $x_indent --y-indent $y_indent -y $((year - 1)) -v year"
+next_year="^bg($defaultFg)^fg($defaultBg)^ca(1,$next_year_cmd)>>^ca()^fg()^bg()"
+prev_year="^bg($defaultFg)^fg($defaultBg)^ca(1,$prev_year_cmd)<<^ca()^fg()^bg()"
+
+generate_colored_month_output() {
+    cal $month $year | awk -v hd="${highlighted_days[*]}" -v hds="${holidays[*]}" -v wds="${workdays[*]}" '
+    function isHighlighted(d,m,y,cur_d,cur_m,cur_y) {
+        return int(d) == int(cur_d) && int(m) == int(cur_m) && int(y) == int(cur_y)
+    }
+    function isHoliday(d,m,y,weekend) {
+        if (weekend) {
+            for (ii in workdays) {
+                if (int(workdays[ii][3]) == int(d) && int(workdays[ii][2]) == int(m) && int(workdays[ii][1]) == int(y)) {
+                    return 0
+                }
+            }
+            return 1
+        }
+        else {
+            for (ii in holidays) {
+                if (int(holidays[ii][3]) == int(d) && int(holidays[ii][2]) == int(m) && int(holidays[ii][1]) == int(y)) {
+                    return 1
+                }
+            }
+            return 0
+        }
+    }
+    BEGIN {
+        split(hd, tmp, " ")
+        for (i in tmp) {
+            h_days[i][0]=""
+            split(tmp[i],h_days[i],"-")
+        }
+        split(hds, tmp2, " ")
+        for (i in tmp2) {
+            holidays[i][0]=""
+            split(tmp2[i],holidays[i],"-")
+        }
+        split(wds, tmp3, " ")
+        for (i in tmp3) {
+            workdays[i][0]=""
+            split(tmp3[i],workdays[i],"-")
+        }
+    }
+    {
+        # skip title line
+        if (NR > 1) {
+            for (i = 1; i <= length($0); i+=3) {
+                day=substr($0,i,2)
+                prefix  = ""
+                postfix = ""
+                if (isHoliday(day,"'"$month"'","'"$year"'", int(i/3) >= 5)) {
+                    prefix  = "^bg('"$holidayBg"')^fg('"$holidayFg"')"
+                    postfix = "^fg()^bg()"
+                }
+                for (j in h_days) {
+                    if (isHighlighted(h_days[j][3],h_days[j][2],h_days[j][1],day,"'"$month"'","'"$year"'")) {
+                        prefix  = "^bg('"$highlightedBg"')^fg('"$highlightedFg"')"
+                        postfix = "^fg()^bg()"
+                        break;
+                    }
+                }
+                if (isHighlighted("'"$day"'",        "'"$month"'",        "'"$year"'",
+                                         day,"'"$current_month"'","'"$current_year"'")) {
+                    prefix  = "^bg('"$curDayBg"')^fg('"$curDayFg"')"
+                    postfix = "^fg()^bg()"
+                }
+                printf "%s%s%s%s",prefix,day,postfix,substr($0,i+2,1)
+            }
+            printf "\n"
+        }
+        else {
+            print $0
+        }
+    }' | sed "1s|$year|$year_btn|; 1s|^  |$prev|; 1s|  $|$next|"
+}
+
+generate_colored_year_output() {
+    cal -y $year | awk -v hd="${highlighted_days[*]}" -v hds="${holidays[*]}" -v wds="${workdays[*]}" '
+    function monthEquals(m, cur_line, cur_col) {
+        cur_row = int((cur_line-3)/8)
+        row     = int((int(m)-1)/3)
+        col     = (int(m)-1) - row*3
+        return col == cur_col && row == cur_row
+    }
+    function isHighlighted(d,m,y,cur_d, cur_line, cur_col, cur_y) {
+        return int(d) == int(cur_d) && int(y) == int(cur_y) && monthEquals(m, cur_line, cur_col)
+    }
+    function formatMonthLine(line,start,col) {
+        for(i = start; i < start + 21; i+=3) {
+            day=substr(line,i,2)
+            prefix  = ""
+            postfix = ""
+            if (isHoliday(day,NR,col,"'"$year"'", int((i-start)/3) >= 5)) {
+                prefix  = "^bg('"$holidayBg"')^fg('"$holidayFg"')"
+                postfix = "^fg()^bg()"
+            }
+            for (j in h_days) {
+                if (isHighlighted(h_days[j][3],h_days[j][2],h_days[j][1],day,NR,col,"'"$year"'")) {
+                    prefix  = "^bg('"$highlightedBg"')^fg('"$highlightedFg"')"
+                    postfix = "^fg()^bg()"
+                    break;
+                }
+            }
+            if (isHighlighted("'"$day"'","'"$month"'","'"$year"'",day,NR,col,"'"$current_year"'")) {
+                prefix  = "^bg('"$curDayBg"')^fg('"$curDayFg"')"
+                postfix = "^fg()^bg()"
+            }
+            printf "%s%s%s%s",prefix,day,postfix,substr(line,i+2,1)
+        }
+    }
+    function isHoliday(d,cur_line,cur_col,y,weekend) {
+        if (weekend) {
+            for (ii in workdays) {
+                if (int(workdays[ii][3]) == int(d) && monthEquals(int(workdays[ii][2]), cur_line, cur_col) && int(workdays[ii][1]) == int(y)) {
+                    return 0
+                }
+            }
+            return 1
+        }
+        else {
+            for (ii in holidays) {
+                if (int(holidays[ii][3]) == int(d) && monthEquals(int(holidays[ii][2]), cur_line, cur_col) && int(holidays[ii][1]) == int(y)) {
+                    return 1
+                }
+            }
+            return 0
+        }
+    }
+    BEGIN {
+        split(hd, tmp, " ")
+        for (i in tmp) {
+            h_days[i][0]=""
+            split(tmp[i],h_days[i],"-")
+        }
+        split(hds, tmp2, " ")
+        for (i in tmp2) {
+            holidays[i][0]=""
+            split(tmp2[i],holidays[i],"-")
+        }
+        split(wds, tmp3, " ")
+        for (i in tmp3) {
+            workdays[i][0]=""
+            split(tmp3[i],workdays[i],"-")
+        }
+    }
+    {
+        # skip title lines
+        if (NR == 1 || NR == 2 || NR == 3 || NR == 11 || NR == 19 || NR == 27) {
+            print $0
+        }
+        else {
+            formatMonthLine($0,1,0)
+            printf "%s",substr($0,22,1)
+            formatMonthLine($0,24,1)
+            printf "%s",substr($0,45,2)
+            formatMonthLine($0,47,2)
+            printf "\n"
+        }
+    }' | sed "1s|^  |$prev_year|; 1s|  $|$next_year|"
+}
+
+# kill running dzen-calendar instances
+pkill -f "dzen2 -title-name $titleName"
+
+if [[ "$view_type" == "year" ]]; then
+    out=$(generate_colored_year_output)
+    width=$width_year
+else
+    out=$(generate_colored_month_output)
+    width=$width_month
+fi
+
+lines=$(echo "$out" | wc -l)
+height=$(( $lines * $font_height ))
+
+x_align=${align:1:1}
+y_align=${align:0:1}
+
+case "$x_align" in
+    "l" ) xpos=$x_indent ;;
+    "m" ) xpos=$(( $screenW / 2 - $width / 2 )) ;;
+    "r" ) xpos=$(( - $width - $x_indent )) ;;
+esac
+
+case "$y_align" in
+    "t" ) ypos=$y_indent ;;
+    "m" ) ypos=$(( $screenH / 2 - $height / 2 )) ;;
+    "b" ) ypos=$(( - $height - $y_indent )) ;;
+esac
+
+echo "$out" | dzen2 -title-name "$titleName" \
+                    -fn "$font" \
+                    -fg "$defaultFg" \
+                    -bg "$defaultBg" \
+                    -p \
+                    -x "$xpos" \
+                    -y "$ypos" \
+                    -w "$width" \
+                    -l "$((lines-1))" \
+                    -sa 'c' \
+                    -ta 'c' \
+                    -e 'onstart=uncollapse;button1=exit;button3=exit' &
