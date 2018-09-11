@@ -154,7 +154,7 @@ next_year="^bg($defaultFg)^fg($defaultBg)^ca(1,$next_year_cmd)>>^ca()^fg()^bg()"
 prev_year="^bg($defaultFg)^fg($defaultBg)^ca(1,$prev_year_cmd)<<^ca()^fg()^bg()"
 
 generate_colored_month_output() {
-    cal $month $year | awk -v hd="${highlighted_days[*]}" -v hds="${holidays[*]}" -v wds="${workdays[*]}" '
+    cal --monday $month $year | awk -v hd="${highlighted_days[*]}" -v hds="${holidays[*]}" -v wds="${workdays[*]}" '
     function isHighlighted(d,m,y,cur_d,cur_m,cur_y) {
         return int(d) == int(cur_d) && int(m) == int(cur_m) && int(y) == int(cur_y)
     }
@@ -227,7 +227,7 @@ generate_colored_month_output() {
 }
 
 generate_colored_year_output() {
-    cal -y $year | awk -v hd="${highlighted_days[*]}" -v hds="${holidays[*]}" -v wds="${workdays[*]}" '
+    cal --monday -y $year | awk -v hd="${highlighted_days[*]}" -v hds="${holidays[*]}" -v wds="${workdays[*]}" '
     function monthEquals(m, cur_line, cur_col) {
         cur_row = int((cur_line-3)/8)
         row     = int((int(m)-1)/3)
