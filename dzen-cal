@@ -81,7 +81,7 @@ function test_args() {
 }
 
 function read_args() {
-    OPTS=`getopt -o a:,m:,y:,v: -l x-indent:,y-indent: -- "$@"`
+    OPTS=`getopt -o a:,m:,y:,v:,s: -l x-indent:,y-indent: -- "$@"`
     eval set -- "$OPTS"
 
     while true; do
@@ -90,6 +90,7 @@ function read_args() {
             -m ) month="$2"; shift 2 ;;
             -y ) year="$2"; shift 2 ;;
             -a ) align="$2"; shift 2 ;;
+            -s ) xs="$2"; shift 2;;
             --x-indent) x_indent="$2"; shift 2;;
             --y-indent) y_indent="$2"; shift 2;;
             -- ) shift; break ;;
@@ -136,20 +137,21 @@ current_month=$(date +%-m)
 current_year=$(date +%-Y)
 view_type="month"
 align="mm"
+xs=1
 
 read_args "$@"
 test_args
 
-next_cmd="$script_path -a $align --x-indent $x_indent --y-indent $y_indent -m $((month + 1)) -y $year"
-prev_cmd="$script_path -a $align --x-indent $x_indent --y-indent $y_indent -m $((month - 1)) -y $year"
+next_cmd="$script_path -s $xs -a $align --x-indent $x_indent --y-indent $y_indent -m $((month + 1)) -y $year"
+prev_cmd="$script_path -s $xs -a $align --x-indent $x_indent --y-indent $y_indent -m $((month - 1)) -y $year"
 next="^bg($defaultFg)^fg($defaultBg)^ca(1,$next_cmd)>>^ca()^fg()^bg()"
 prev="^bg($defaultFg)^fg($defaultBg)^ca(1,$prev_cmd)<<^ca()^fg()^bg()"
 
-year_cmd="$script_path -a $align --x-indent $x_indent --y-indent $y_indent -y $year -v year"
+year_cmd="$script_path -s $xs -a $align --x-indent $x_indent --y-indent $y_indent -y $year -v year"
 year_btn="^bg($defaultFg)^fg($defaultBg)^ca(1,$year_cmd)$year^ca()^fg()^bg()"
 
-next_year_cmd="$script_path -a $align --x-indent $x_indent --y-indent $y_indent -y $((year + 1)) -v year"
-prev_year_cmd="$script_path -a $align --x-indent $x_indent --y-indent $y_indent -y $((year - 1)) -v year"
+next_year_cmd="$script_path -s $xs -a $align --x-indent $x_indent --y-indent $y_indent -y $((year + 1)) -v year"
+prev_year_cmd="$script_path -s $xs -a $align --x-indent $x_indent --y-indent $y_indent -y $((year - 1)) -v year"
 next_year="^bg($defaultFg)^fg($defaultBg)^ca(1,$next_year_cmd)>>^ca()^fg()^bg()"
 prev_year="^bg($defaultFg)^fg($defaultBg)^ca(1,$prev_year_cmd)<<^ca()^fg()^bg()"
 
@@ -345,6 +347,7 @@ echo "$out" | dzen2 -title-name "$titleName" \
                     -fg "$defaultFg" \
                     -bg "$defaultBg" \
                     -p \
+                    -xs "$xs" \
                     -x "$xpos" \
                     -y "$ypos" \
                     -w "$width" \
