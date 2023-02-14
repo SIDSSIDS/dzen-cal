@@ -192,18 +192,19 @@ function read_args() {
     fi
 }
 
-defaultBg="#0087AF"
-defaultFg="#FFFFFF"
-curDayBg="#AFD700"
-curDayFg="#0C6700"
-holidayFg="#990700"
+defaultBg="#091833"
+defaultFg="#0abdc6"
+curDayBg="#321959"
+curDayFg="#ea00d9"
+holidayFg="#ea00d9"
+#holidayFg="#990700"
 holidayBg=""
 highlightedFg="#0C6700"
 highlightedBg=""
-btnBg=$defaultFg
-btnFg=$defaultBg
+btnFg="#ea00d9"
+btnBg=$defaultBg
 titleName="dzen-calendar"
-font="Liberation Mono-13:style=Bold"
+font="Liberation Mono-13:style=Normal"
 font_power="PowerlineSymbols-17:style=Medium"
 font_height=21
 width_month="220"
